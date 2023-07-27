@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "ethers": "^6.6.5",
-    "node-telegram-bot-api": "^0.61.0"
+    "node-telegram-bot-api": "^0.61.0",
+    "web3": "^1.10.0"
   }
 }
