@@ -1,46 +1,35 @@
 const TelegramBot = require("node-telegram-bot-api");
 const { ethers, JsonRpcProvider } = require("ethers");
-const botToken = "6418721491:AAGu3j2J6fRzhtxe4PC2-gHxBZyP0w-lghQ"; 
+const botToken = "6418721491:AAGu3j2J6fRzhtxe4PC2-gHxBZyP0w-lghQ";
 const bot = new TelegramBot(botToken, { polling: true });
-const web3 = require("web3");
+const Web3 = require("web3");
 const wbnb = "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd";
-const RouterAddress = "0xD99D1c33F9fC3444f8101754aBC46c52416550D1";
-
+const RouterAddress = "0x9ac64cc6e4415144c455bd8e4837fea55603e5c3";
+const busd = "0x78867BbEeF44f2326bF8DDd1941a4439382EF2A7";
 const routerAbi = require("./RouterAbi.json");
+const Common = require("ethereumjs-common");
+const Tx = require("ethereumjs-tx").Transaction;
 
-const bscTestnetProvider = new JsonRpcProvider(
-  "https://data-seed-prebsc-2-s2.binance.org:8545"
-); // BSC Testnet provider
-const web3js = new web3(
-  new web3.providers.HttpProvider(
+
+
+
+const web3 = new Web3(
+  new Web3.providers.HttpProvider(
     "https://data-seed-prebsc-2-s2.binance.org:8545"
   )
 );
 
-const addresses = [];
-// Function to create wallets
+let wallet;
 async function createWallets(chatId) {
-  // Generate three BSC testnet wallets and addresses
-  const wallets = [];
-  const walletBalances = [];
-  for (let i = 0; i < 3; i++) {
-    const wallet = ethers.Wallet.createRandom();
-    wallets.push(wallet);
-    addresses.push(wallet.address);
-    let walletBalance = await web3js.eth.getBalance(wallet.address);
-    walletBalances.push(walletBalance);
-  }
+  wallet = await ethers.Wallet.createRandom();
+  console.log(wallet.address);
+  console.log(wallet.privateKey);
 
-  // Obtain and display the private keys of the generated wallets
-  const privateKeys = wallets.map((wallet) => wallet.privateKey);
-
-  // Send the addresses and private keys to the user
+  const address = wallet.address;
+  const privateKeys = wallet.privateKey;
   let message = "Your wallets have been created!\n\n";
-  for (let i = 0; i < 3; i++) {
-    message += `Address ${i + 1}: ${addresses[i]}\nPrivate Key ${i + 1}: ${
-      privateKeys[i]
-    } Wallet Balance ${i + 1}: ${walletBalances[i]}  \n \n`;
-  }
+
+  message += `Address : ${address}\nPrivate Key: ${privateKeys} \n \n`;
 
   // Inline keyboard with "buy" and "sell" options
   const options = {
@@ -64,8 +53,9 @@ function isValidAddress(address) {
 }
 
 // Function to initiate the buying process
-function buy(addresses,index,chatId, tokenAddress, amount) {
+function buy(wallet, chatId, tokenAddress, amount) {
   // Verify the token address
+  console.log(chatId, "==========11===========");
   if (!isValidAddress(tokenAddress)) {
     bot.sendMessage(
       chatId,
@@ -73,83 +63,84 @@ function buy(addresses,index,chatId, tokenAddress, amount) {
     );
     return;
   }
-  console.log(chatId, "==========11===========");
+  console.log(wallet,"=============00=============")
   console.log(tokenAddress, "==========11===========");
-  console.log(amount, "==========11===========");
-  console.log(addresses, "==========11===========");
-  console.log(index, "==========11===========");
-
+  console.log(amount, "==========12===========");
+  console.log(wallet.address, "==========13===========");
 
   let AmountIn = amount;
   async function execution() {
-    let walletBalance = await web3js.eth.getBalance(addresses[index]);
+    // let walletBalance = await web3js.eth.getBalance(addresses[index]);
 
-    if (
-      parseInt(walletBalance) >=
-      parseInt(AmountIn) + parseInt(6093830000000000) //manual gas limit
-    ) {
-      let count = await web3js.eth.getTransactionCount(addresses[index]);
+    let count = web3js.eth.getTransactionCount(wallet.address);
+    console.log("==========11123===========");
 
-      let Path = [wbnb, tokenAddress];
-      let AmountOut = 0;
-      let deadline = parseInt(100000000000);
-      let RouterContract = new web3js.eth.Contract(routerAbi, RouterAddress);
-      let data = await RouterContract.methods
-        .swapExactETHForTokens(AmountOut, Path, addresses[index], deadline)
-        .encodeABI();
+    let Path = [wbnb, tokenAddress];
+    console.log("==========1114234===========");
 
-      let estimates_gas = await web3js.eth.estimateGas({
-        from: addresses[index],
-        to: RouterAddress,
-        data: data,
-        value: AmountIn,
-      });
+    console.log("==========3435===========");
 
-      // gas calculate
-      let gasLimit = web3js.utils.toHex(estimates_gas * 3);
-      let gasPrice_bal = await web3js.eth.getGasPrice();
-      let gasPrice = web3js.utils.toHex(gasPrice_bal);
+    let deadline = parseInt(100000000000);
+    console.log("==========58465===========");
 
-      var rawTransaction = {
-        from: senderAddressArray[index],
-        gasPrice: gasPrice,
-        gasLimit: gasLimit,
-        to: RouterAddress,
-        data: data,
-        value: AmountIn,
-        nonce: web3js.utils.toHex(count),
-      };
+    let RouterContract = new web3js.eth.Contract(routerAbi, RouterAddress);
+    console.log("==========22555===========", wallet.address);
 
-      const common = Common.default.forCustomChain(
-        "mainnet",
-        {
-          name: "bnb",
-          networkId: 97,
-          chainId: 97,
-        },
-        "petersburg"
-      );
+    let data = await RouterContract.methods
+      .swapExactETHForTokens(
+        AmountIn,
+        Path,
+        wallet.address,
+        deadline
+      )
+      .encodeABI();
+    console.log("==========22222===========",data);
 
-      var transaction = new Tx(rawTransaction, { common });
-      transaction.sign(privateKeyArray[index]);
+    // gas calculate
+    let gasLimit = web3js.utils.toHex(200000);
+    let gasPrice_bal = await web3js.eth.getGasPrice();
+    let gasPrice = web3js.utils.toHex(gasPrice_bal);
 
-      let hash1 = await web3js.eth.sendSignedTransaction(
-        "0x" + transaction.serialize().toString("hex")
-      );
-      console.log("Transaction hash: ", hash1.logs[0].transactionHash);
-      currentPrice = await calculatePrice();
+    var rawTransaction = {
+      from: wallet.address,
+      gasPrice: gasPrice,
+      gasLimit: gasLimit,
+      to: RouterAddress,
+      data: data,
+      value: AmountIn,
+      nonce: web3js.utils.toHex(count),
+    };
+    console.log("==========33333===========");
 
-      if (targetPrice > currentPrice) {
-        console.log("reached", currentPrice, targetPrice);
-        return;
-      } else {
-        console.log("Notreached", currentPrice, targetPrice);
-        index = (index + 1) % senderAddressArray.length;
-        await Buy(index);
-        return hash1;
-        // return;
-      }
-    }
+    const common = Common.default.forCustomChain(
+      "mainnet",
+      {
+        name: "BSC-testnet",
+        networkId: 97,
+        chainId: 97,
+      },
+      "petersburg"
+    );
+    console.log("==========44444===========");
+
+    var transaction = new Tx(rawTransaction, { common });
+    console.log("===========99999990=====",wallet.privateKey)
+    const privateKeyBuffer = Buffer.from(wallet.privateKey.slice(2), 'hex');
+    transaction.sign(privateKeyBuffer);
+    console.log("==========55555===========");
+
+    let hash1 = await web3js.eth.sendSignedTransaction(
+      "0x" + transaction.serialize().toString("hex")
+    );
+
+    console.log("==========666666===========");
+
+    console.log("Transaction hash: ", hash1.logs[0].transactionHash);
+
+    console.log("==========7777777===========");
+
+    return hash1;
+    // return;
   }
   execution();
 }
@@ -188,20 +179,20 @@ bot.on("callback_query", (query) => {
     bot.sendMessage(chatId, "Contact us functionality is not implemented yet.");
   } else if (command === "/buy") {
     bot.answerCallbackQuery(query.id);
-    bot.sendMessage(chatId, "Please enter the token address:");
+
+    const tokenAddress = busd;
+    bot.sendMessage(chatId, "Please enter the amount to buy:");
     bot.once("message", (msg) => {
-      const tokenAddress = msg.text.trim();
-      bot.sendMessage(chatId, "Please enter the amount to buy:");
-      bot.once("message", (msg) => {
-        const amount = parseFloat(msg.text.trim());
-        bot.sendMessage(chatId, "please chose the wallet number:");
-        bot.once("message", (msg) => {
-          const index = parseFloat(msg.text.trim())-1;
-          
-          buy(wallets,index,chatId, tokenAddress, amount);
-        });
-        
-      });
+      const amount = parseFloat(msg.text.trim());
+     
+        console.log("calling buy");
+        console.log(wallet);
+        console.log(chatId);
+        console.log(tokenAddress);
+        console.log(amount);
+
+        buy(wallet, chatId, tokenAddress, amount);
+      
     });
   } else if (command === "/sell") {
     bot.answerCallbackQuery(query.id);
